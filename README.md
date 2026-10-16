@@ -1,4 +1,4 @@
-# Zero-Interaction Smartband: Elder Health Monitoring & Early Warning System
+# ZERO-INTERACTION SMARTBAND: SISTEM PEMANTAUAN KESEHATAN PREVENTIF BERBASIS IoT DAN EARLY WARNINGSYSTEM UNTUK LANSIA
 
 Sistem pemantauan kesehatan pasif (*zero-interaction*) berbasis IoT, Mobile App, dan Backend Alert Engine untuk deteksi dini anomali tanda vital lansia serta eskalasi darurat otomatis.
 
@@ -26,6 +26,10 @@ Node.js (v18+)
 Docker & Docker Desktop
 Flutter SDK (v3.20+)
 Git
+```
+* #### Clone Repository
+```powershell
+git clone https://github.com/uusrajaminyak/Elder-Health-Monitoring
 ```
 * #### Konfigurasi Backend
 ```powershell
