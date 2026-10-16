@@ -1,46 +1,29 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../constants/api_constants.dart';
+import 'api_constants.dart';
 
 class ApiService {
-  final http.Client _client = http.Client();
+  final String baseUrl = ApiConstants.baseUrl;
 
-  // GET /api/elders/:id/vitals
-  Future<Map<String, dynamic>> getElderVitals(String elderId) async {
-    final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/elders/$elderId/vitals'),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Gagal mengambil data vitals: ${response.body}');
-    }
-  }
-
-  // GET /api/elders/:id/thresholds
   Future<Map<String, dynamic>> getElderThresholds(String elderId) async {
-    final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/elders/$elderId/thresholds'),
+    final response = await http.get(
+      Uri.parse('$baseUrl/elders/$elderId/thresholds'),
     );
-
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
-    } else {
-      throw Exception('Gagal mengambil threshold: ${response.body}');
     }
+    throw Exception('Gagal mengambil data threshold');
   }
 
-  // PUT /api/elders/:id/thresholds (Validasi Hard Safety Guardrails)
-  Future<Map<String, dynamic>> updateElderThresholds({
+  Future<void> updateElderThresholds({
     required String elderId,
     required int minSpo2,
     required int minBpm,
     required int maxBpm,
     required double maxTemp,
   }) async {
-    final response = await _client.put(
-      Uri.parse('${ApiConstants.baseUrl}/elders/$elderId/thresholds'),
+    final response = await http.put(
+      Uri.parse('$baseUrl/elders/$elderId/thresholds'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'minSpo2': minSpo2,
@@ -49,51 +32,38 @@ class ApiService {
         'maxTemp': maxTemp,
       }),
     );
-
-    final Map<String, dynamic> data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return data;
-    } else if (response.statusCode == 400) {
-      // Ditolak backend karena melanggar guardrails
-      throw Exception(data['message'] ?? 'Pelanggaran batas aman guardrails');
-    } else {
-      throw Exception('Gagal memperbarui threshold');
+    if (response.statusCode != 200) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['message'] ?? 'Gagal memperbarui threshold');
     }
   }
 
-  // GET /api/elders/:id/events
-  Future<List<dynamic>> getElderEvents(String elderId) async {
-    final response = await _client.get(
-      Uri.parse('${ApiConstants.baseUrl}/elders/$elderId/events'),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Gagal mengambil riwayat event');
-    }
-  }
-
-  // POST /api/alerts/:id/ack (Konfirmasi Alarm)
-  Future<Map<String, dynamic>> acknowledgeAlert({
+  Future<void> acknowledgeAlert({
     required String alertId,
     required String handledBy,
     required bool isFalseAlarm,
   }) async {
-    final response = await _client.post(
-      Uri.parse('${ApiConstants.baseUrl}/alerts/$alertId/ack'),
+    final response = await http.post(
+      Uri.parse('$baseUrl/alerts/$alertId/ack'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'handledBy': handledBy,
         'isFalseAlarm': isFalseAlarm,
       }),
     );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
+    if (response.statusCode != 200) {
       throw Exception('Gagal mengonfirmasi alarm');
+    }
+  }
+
+  // Metode pemicu fitur Find My Band
+  Future<void> triggerBuzzer(String elderId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/elders/$elderId/trigger-buzzer'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Gagal membunyikan gelang');
     }
   }
 }

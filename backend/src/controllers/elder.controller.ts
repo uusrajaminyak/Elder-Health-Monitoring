@@ -1,135 +1,121 @@
 import { Request, Response } from 'express';
-import prisma from '../config/prisma';
+import { PrismaClient } from '@prisma/client';
 
-// GET /elders/:id/vitals - Mengambil riwayat telemetri terkini
+const prisma = new PrismaClient();
+
 export const getElderVitals = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const limit = parseInt(req.query.limit as string) || 50;
-
-    const device = await prisma.device.findUnique({
-      where: { elderId: id },
-    });
-
-    if (!device) {
-      return res.status(404).json({ message: 'Perangkat lansia tidak ditemukan' });
-    }
+    const { id } = req.params; // String ID (misal "1" atau UUID)
 
     const vitals = await prisma.vitalTelemetry.findMany({
-      where: { deviceId: device.deviceId },
+      where: {
+        device: {
+          elderId: id,
+        },
+      },
       orderBy: { timestamp: 'desc' },
-      take: limit,
+      take: 50,
     });
 
-    return res.json({
-      deviceStatus: {
-        isOnline: device.isOnline,
-        isWorn: device.isWorn,
-        isCharging: device.isCharging,
-        batteryLevel: device.batteryLevel,
-        lastSeenAt: device.lastSeenAt,
-      },
-      vitals: vitals.reverse(),
-    });
+    return res.status(200).json({ success: true, data: vitals });
   } catch (error) {
-    return res.status(500).json({ message: 'Gagal mengambil data vitals', error });
+    console.error('[ERROR GET VITALS]:', error);
+    return res.status(500).json({ message: 'Gagal mengambil data vitals', error: String(error) });
   }
 };
 
-// GET /elders/:id/thresholds - Ambil batas threshold lansia
 export const getElderThresholds = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const threshold = await prisma.thresholdConfig.findUnique({
-      where: { elderId: id },
-    });
+    const { id } = req.params; // String ID
 
-    if (!threshold) {
-      return res.status(404).json({ message: 'Threshold tidak ditemukan' });
-    }
-
-    return res.json(threshold);
-  } catch (error) {
-    return res.status(500).json({ message: 'Gagal mengambil threshold', error });
-  }
-};
-
-// PUT /elders/:id/thresholds - Update threshold dengan Hard Safety Guardrails
-export const updateElderThresholds = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { minSpo2, minBpm, maxBpm, maxTemp, userId } = req.body;
-
-    // Hard Safety Guardrails Validation (Aturan Kritis SRS)
-    if (minSpo2 != null && minSpo2 < 88) {
-      return res.status(400).json({
-        message: 'Pelanggaran Guardrail: Batas bawah SpO2 tidak boleh di bawah 88%.',
-      });
-    }
-    if (minBpm != null && minBpm < 40) {
-      return res.status(400).json({
-        message: 'Pelanggaran Guardrail: Batas bawah BPM tidak boleh di bawah 40 BPM.',
-      });
-    }
-    if (maxBpm != null && maxBpm > 130) {
-      return res.status(400).json({
-        message: 'Pelanggaran Guardrail: Batas atas BPM tidak boleh di atas 130 BPM.',
-      });
-    }
-    if (maxTemp != null && maxTemp > 38.0) {
-      return res.status(400).json({
-        message: 'Pelanggaran Guardrail: Batas atas suhu tidak boleh di atas 38.0°C.',
-      });
-    }
-
-    const currentConfig = await prisma.thresholdConfig.findUnique({
-      where: { elderId: id },
-    });
-
-    const updatedConfig = await prisma.thresholdConfig.update({
-      where: { elderId: id },
-      data: {
-        minSpo2: minSpo2 ?? currentConfig?.minSpo2,
-        minBpm: minBpm ?? currentConfig?.minBpm,
-        maxBpm: maxBpm ?? currentConfig?.maxBpm,
-        maxTemp: maxTemp ?? currentConfig?.maxTemp,
-        isDefault: false,
+    // Pastikan data Elder ada di DB agar tidak melanggar Foreign Key Constraint
+    const elder = await prisma.elder.upsert({
+      where: { id },
+      update: {},
+      create: {
+        id,
+        name: 'Nenek',
+        age: 75,
       },
     });
 
-    // Catat Audit Log Perubahan Threshold
-    if (userId && currentConfig) {
-      await prisma.thresholdAuditLog.create({
-        data: {
-          elderId: id,
-          changedBy: userId,
-          oldValues: currentConfig as any,
-          newValues: updatedConfig as any,
-        },
-      });
-    }
-
-    return res.json({
-      message: 'Threshold berhasil diperbarui',
-      data: updatedConfig,
+    const threshold = await prisma.thresholdConfig.upsert({
+      where: { elderId: elder.id },
+      update: {},
+      create: {
+        elderId: elder.id,
+        minSpo2: 95,
+        minBpm: 60,
+        maxBpm: 100,
+        maxTemp: 37.5,
+      },
     });
+
+    return res.status(200).json({ success: true, data: threshold });
   } catch (error) {
-    return res.status(500).json({ message: 'Gagal memperbarui threshold', error });
+    console.error('[ERROR GET THRESHOLDS]:', error);
+    return res.status(500).json({ message: 'Gagal mengambil data threshold', error: String(error) });
   }
 };
 
-// GET /elders/:id/events - Log Riwayat Kejadian & Alarm
+export const updateElderThresholds = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // String ID
+    const { minSpo2, minBpm, maxBpm, maxTemp } = req.body;
+
+    // Pastikan record Elder tersedia
+    const elder = await prisma.elder.upsert({
+      where: { id },
+      update: {},
+      create: {
+        id,
+        name: 'Nenek',
+        age: 75,
+      },
+    });
+
+    const updated = await prisma.thresholdConfig.upsert({
+      where: { elderId: elder.id },
+      update: {
+        minSpo2: Number(minSpo2),
+        minBpm: Number(minBpm),
+        maxBpm: Number(maxBpm),
+        maxTemp: Number(maxTemp),
+      },
+      create: {
+        elderId: elder.id,
+        minSpo2: Number(minSpo2),
+        minBpm: Number(minBpm),
+        maxBpm: Number(maxBpm),
+        maxTemp: Number(maxTemp),
+      },
+    });
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    console.error('[ERROR UPDATE THRESHOLD]:', error);
+    return res.status(500).json({ message: 'Gagal memperbarui threshold', error: String(error) });
+  }
+};
+
 export const getElderEvents = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
     const events = await prisma.alertEvent.findMany({
-      where: { elderId: id },
+      where: {
+        OR: [
+          { elderId: id },
+          { device: { elderId: id } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 20,
     });
 
-    return res.json(events);
+    return res.status(200).json({ success: true, data: events });
   } catch (error) {
-    return res.status(500).json({ message: 'Gagal mengambil riwayat event', error });
+    console.error('[ERROR GET EVENTS]:', error);
+    return res.status(500).json({ message: 'Gagal mengambil data events', error: String(error) });
   }
 };

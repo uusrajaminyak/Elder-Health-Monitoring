@@ -28,72 +28,108 @@ class VitalsState {
     this.currentTelemetry,
     this.history = const [],
     this.activeAlert,
-    this.isOnline = true,
+    this.isOnline = false,
   });
 
   VitalsState copyWith({
     TelemetryModel? currentTelemetry,
     List<TelemetryModel>? history,
     AlertModel? activeAlert,
+    bool clearAlert = false, // Flag untuk mereset activeAlert secara eksplisit
     bool? isOnline,
   }) {
     return VitalsState(
       currentTelemetry: currentTelemetry ?? this.currentTelemetry,
       history: history ?? this.history,
-      activeAlert: activeAlert,
+      activeAlert: clearAlert ? null : (activeAlert ?? this.activeAlert),
       isOnline: isOnline ?? this.isOnline,
     );
   }
 }
 
-// Menggunakan Notifier (Riverpod 2.0+ Standard)
 class VitalsNotifier extends Notifier<VitalsState> {
+  DateTime? _lastFallEventTime;
+
   @override
   VitalsState build() {
-    // Mendengarkan stream WebSocket secara otomatis saat provider diinisialisasi
     ref.listen<AsyncValue<Map<String, dynamic>>>(
       webSocketStreamProvider,
-      (_, next) {
-        next.whenData((message) => updateFromWebSocket(message));
+      (previous, next) {
+        next.when(
+          data: (message) => updateFromWebSocket(message),
+          error: (error, stackTrace) {
+            state = state.copyWith(isOnline: false);
+          },
+          loading: () {
+            state = state.copyWith(isOnline: false);
+          },
+        );
       },
     );
-    return VitalsState();
+
+    return VitalsState(isOnline: false);
   }
 
   void updateFromWebSocket(Map<String, dynamic> message) {
-    final type = message['type'];
-    if (type == 'TELEMETRY_UPDATE') {
-      final data = message['data'];
-      final telemetry = TelemetryModel.fromJson(data);
+    try {
+      final String? type = message['type']?.toString();
 
-      final updatedHistory = [...state.history, telemetry];
-      if (updatedHistory.length > 30) {
-        updatedHistory.removeAt(0);
+      if (type == 'TELEMETRY_UPDATE') {
+        final rawData = message['data'];
+        if (rawData != null) {
+          final Map<String, dynamic> data = Map<String, dynamic>.from(rawData as Map);
+          final telemetry = TelemetryModel.fromJson(data);
+
+          final updatedHistory = [...state.history, telemetry];
+          if (updatedHistory.length > 30) {
+            updatedHistory.removeAt(0);
+          }
+
+          state = state.copyWith(
+            currentTelemetry: telemetry,
+            history: updatedHistory,
+            isOnline: true,
+          );
+        }
+      } else if (type == 'FALL_EVENT') {
+        final now = DateTime.now();
+        // Guard Anti-Spam: Abaikan event jatuh jika jaraknya kurang dari 10 detik
+        if (_lastFallEventTime != null && now.difference(_lastFallEventTime!).inSeconds < 10) {
+          return;
+        }
+
+        final rawData = message['data'];
+        if (rawData != null) {
+          _lastFallEventTime = now;
+          final Map<String, dynamic> data = Map<String, dynamic>.from(rawData as Map);
+
+          // PENTING: Instansiasi eksplisit AlertModel untuk menghindari TypeError pada Flutter Web
+          final alert = AlertModel(
+            id: data['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            type: 'FALL_CANDIDATE',
+            title: 'Kemungkinan Jatuh Terdeteksi!',
+            description: 'G-Force tinggi terdeteksi (${data['peak_g'] ?? 0}g).',
+            status: 'PENDING',
+            createdAt: DateTime.now(),
+          );
+
+          state = state.copyWith(
+            activeAlert: alert,
+            isOnline: true,
+          );
+        }
+      } else if (type == 'DEVICE_STATUS') {
+        final bool isOnline = message['isOnline'] == true;
+        state = state.copyWith(isOnline: isOnline);
       }
-
-      state = state.copyWith(
-        currentTelemetry: telemetry,
-        history: updatedHistory,
-      );
-    } else if (type == 'FALL_EVENT') {
-      final data = message['data'];
-      state = state.copyWith(
-        activeAlert: AlertModel(
-          id: data['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-          type: 'FALL_CANDIDATE',
-          title: 'Kemungkinan Jatuh Terdeteksi!',
-          description: 'G-Force tinggi terdeteksi (${data['peak_g']}g).',
-          status: 'PENDING',
-          createdAt: DateTime.now(),
-        ),
-      );
-    } else if (type == 'DEVICE_STATUS') {
-      state = state.copyWith(isOnline: message['isOnline'] ?? false);
+    } catch (e) {
+      // Menangkap error parsing agar tidak merusak state Riverpod
+      print('[VITALS NOTIFIER ERROR]: $e');
     }
   }
 
   void clearActiveAlert() {
-    state = state.copyWith(activeAlert: null);
+    state = state.copyWith(clearAlert: true);
   }
 }
 

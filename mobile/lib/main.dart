@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'features/dashboard/screens/dashboard_screen.dart';
+import 'core/theme/app_colors.dart';
+import 'features/dashboard/screens/main_navigation_screen.dart';
 
 void main() {
   runApp(
@@ -19,10 +20,11 @@ class MyApp extends StatelessWidget {
       title: 'Zero-Band',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.forestGreen),
+        scaffoldBackgroundColor: AppColors.background,
         useMaterial3: true,
       ),
-      home: const DashboardScreen(),
+      home: const MainNavigationScreen(),
     );
   }
 }
