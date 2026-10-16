@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../settings/screens/threshold_settings_screen.dart';
 import 'dashboard_screen.dart';
 import 'help_screen.dart';
+import 'history_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -53,20 +54,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Bantuan',
           ),
         ],
-      ),
-    );
-  }
-}
-
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Tanda Vital')),
-      body: const Center(
-        child: Text('Konten Halaman Riwayat'),
       ),
     );
   }

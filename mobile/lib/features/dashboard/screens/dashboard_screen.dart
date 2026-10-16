@@ -55,7 +55,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // REVISI KRITIS: Menggunakan ref.listen untuk memicu dialog HANYA jika ada alert baru masuk
+    // KODE YANG DIPERTAHANKAN: Hanya mendengarkan event Jatuh untuk memunculkan Popup Dialog
     ref.listen<VitalsState>(vitalsProvider, (previous, next) {
       final hasNewAlert = next.activeAlert != null && previous?.activeAlert != next.activeAlert;
       if (hasNewAlert && !_isDialogShowing) {
@@ -491,7 +491,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: null, // Disabled button saat offline
+                      onPressed: null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.disabledCard,
                         foregroundColor: AppColors.disabledText,
