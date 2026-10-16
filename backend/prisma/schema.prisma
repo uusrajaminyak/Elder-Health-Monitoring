@@ -1,0 +1,138 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AlertType {
+  FALL_CANDIDATE
+  SPO2_DROP
+  BPM_ABNORMAL
+  TEMP_ABNORMAL
+  BAND_UNWORN
+  BAND_OFFLINE
+}
+
+enum AlertStatus {
+  PENDING
+  ACKNOWLEDGED_HANDLED
+  ACKNOWLEDGED_FALSE_ALARM
+  ESCALATED_TELEGRAM
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("FAMILY") // ADMIN / FAMILY
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  thresholdLogs ThresholdAuditLog[]
+}
+
+model Elder {
+  id            String   @id @default(uuid())
+  name          String
+  age           Int
+  comorbidities String?  // Penyakit penyerta
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  device            Device?
+  emergencyContacts EmergencyContact[]
+  thresholdConfig   ThresholdConfig?
+  thresholdLogs     ThresholdAuditLog[]
+  alerts            AlertEvent[]
+}
+
+model Device {
+  id            String    @id @default(uuid())
+  deviceId      String    @unique // e.g. "BAND-001"
+  elderId       String?   @unique
+  elder         Elder?    @relation(fields: [elderId], references: [id], onDelete: SetNull)
+  isOnline      Boolean   @default(false)
+  isWorn        Boolean   @default(true)
+  isCharging    Boolean   @default(false)
+  batteryLevel  Int       @default(100)
+  lastSeenAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  telemetries VitalTelemetry[]
+  alerts      AlertEvent[]
+}
+
+model VitalTelemetry {
+  id            String   @id @default(uuid())
+  deviceId      String
+  device        Device   @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+  bpm           Int
+  spo2          Int
+  temp          Float?
+  signalQuality Int
+  timestamp     DateTime @default(now())
+
+  @@index([deviceId, timestamp])
+}
+
+model AlertEvent {
+  id              String      @id @default(uuid())
+  deviceId        String
+  device          Device      @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+  elderId         String?
+  elder           Elder?      @relation(fields: [elderId], references: [id], onDelete: SetNull)
+  type            AlertType
+  status          AlertStatus @default(PENDING)
+  title           String
+  description     String
+  peakG           Float?
+  stillDurationS  Int?
+  preBpm          Int?
+  postBpm         Int?
+  handledBy       String?
+  handledAt       DateTime?
+  escalatedAt     DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@index([deviceId, createdAt])
+}
+
+model EmergencyContact {
+  id             String   @id @default(uuid())
+  elderId        String
+  elder          Elder    @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  name           String
+  telegramChatId String
+  priorityOrder  Int      @default(1)
+  isAgreed       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model ThresholdConfig {
+  id          String   @id @default(uuid())
+  elderId     String   @unique
+  elder       Elder    @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  minSpo2     Int      @default(95) // Guardrail: Min 88
+  minBpm      Int      @default(60) // Guardrail: Min 40
+  maxBpm      Int      @default(100)// Guardrail: Max 130
+  maxTemp     Float    @default(37.5)// Guardrail: Max 38.0
+  isDefault   Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model ThresholdAuditLog {
+  id          String   @id @default(uuid())
+  elderId     String
+  elder       Elder    @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  changedBy   String
+  user        User     @relation(fields: [changedBy], references: [id])
+  oldValues   Json
+  newValues   Json
+  createdAt   DateTime @default(now())
+}

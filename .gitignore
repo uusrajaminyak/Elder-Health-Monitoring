@@ -1,0 +1,4 @@
+.env
+*.env
+*.yml
+!.github/workflows/*.yml # Perkecualian jika ada workflow CI/CD non-rahasia
