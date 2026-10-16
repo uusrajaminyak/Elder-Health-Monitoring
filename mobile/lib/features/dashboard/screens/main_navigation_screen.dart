@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../settings/screens/threshold_settings_screen.dart';
 import 'dashboard_screen.dart';
+import 'help_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -14,6 +15,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
+    const HistoryScreen(), 
     const ThresholdSettingsScreen(),
     const HelpScreen(),
   ];
@@ -25,6 +27,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed, 
         selectedItemColor: const Color(0xFF13633F),
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
@@ -33,6 +36,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Beranda',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history_outlined),
+            activeIcon: Icon(Icons.history),
+            label: 'Riwayat',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.tune_outlined),
@@ -50,30 +58,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-class HelpScreen extends StatelessWidget {
-  const HelpScreen({super.key});
+class HistoryScreen extends StatelessWidget {
+  const HistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bantuan & Informasi')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: const [
-          ListTile(
-            leading: Icon(Icons.phone_in_talk, color: Color(0xFF13633F)),
-            title: Text('Panggilan Darurat (112)'),
-            subtitle: Text('Layanan darurat bebas pulsa nasional.'),
-          ),
-          Divider(),
-          ListTile(
-            leading: Icon(Icons.info_outline, color: Color(0xFF13633F)),
-            title: Text('Prinsip Zero-Interaction'),
-            subtitle: Text(
-              'Gelang pintar bekerja secara otonom tanpa menuntut lansia melakukan tombol navigasi atau pengisian berulang.',
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('Riwayat Tanda Vital')),
+      body: const Center(
+        child: Text('Konten Halaman Riwayat'),
       ),
     );
   }
