@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/providers/vitals_provider.dart';
 import '../../../shared/widgets/alert_dialog_widget.dart';
+import '../../../shared/widgets/vitals_info_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -376,10 +377,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       InkWell(
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Baseline Normal: SpO2 ≥ 95%, BPM 60-100, Suhu 36.0-37.5°C'),
-                            ),
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (BuildContext context) => const VitalsInfoDialog(),
                           );
                         },
                         child: const Text(
